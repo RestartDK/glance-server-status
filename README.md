@@ -1,0 +1,1 @@
+Hey this is to learn some go and help w my homelab
