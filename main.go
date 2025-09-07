@@ -1,9 +1,3 @@
-// TODO:
-// Try to make raw json body
-// Make functions of the relevant parts to practice making functions and error handling
-// For the functions I will only make it for the nested entries, not one for the host info cause it is not nested
-// Try to type the json body using type system in go
-// Properly handle errors, should not crash only if it can't understand basic host info
 package main
 
 import (
@@ -18,6 +12,54 @@ import (
 	"strings"
 	"time"
 )
+
+// ServerStatus represents the complete server status response
+type ServerStatus struct {
+	HostInfo    bool         `json:"host_info_is_available"`
+	BootTime    int64        `json:"boot_time"`
+	Hostname    string       `json:"hostname"`
+	Platform    string       `json:"platform"`
+	CPU         CPUInfo      `json:"cpu"`
+	Memory      MemoryInfo   `json:"memory"`
+	Mountpoints []Mountpoint `json:"mountpoints"`
+}
+
+// CPUInfo represents CPU-related information
+type CPUInfo struct {
+	LoadAvailable bool `json:"load_is_available"`
+	Load1Percent  int  `json:"load1_percent"`
+	Load15Percent int  `json:"load15_percent"`
+	TempAvailable bool `json:"temperature_is_available"`
+	TemperatureC  int  `json:"temperature_c"`
+}
+
+// MemoryInfo represents memory and swap information
+type MemoryInfo struct {
+	MemoryAvailable bool  `json:"memory_is_available"`
+	TotalMB         int64 `json:"total_mb"`
+	UsedMB          int64 `json:"used_mb"`
+	UsedPercent     int   `json:"used_percent"`
+	SwapAvailable   bool  `json:"swap_is_available"`
+	SwapTotalMB     int64 `json:"swap_total_mb"`
+	SwapUsedMB      int64 `json:"swap_used_mb"`
+	SwapUsedPercent int   `json:"swap_used_percent"`
+}
+
+// Mountpoint represents a filesystem mount point
+type Mountpoint struct {
+	Path        string `json:"path"`
+	Name        string `json:"name"`
+	TotalMB     int64  `json:"total_mb"`
+	UsedMB      int64  `json:"used_mb"`
+	UsedPercent int64  `json:"used_percent"`
+}
+
+// DiskUsage represents disk usage information
+type DiskUsage struct {
+	TotalMB     int64 `json:"total_mb"`
+	UsedMB      int64 `json:"used_mb"`
+	UsedPercent int64 `json:"used_percent"`
+}
 
 func getCPUTemperature() (int, error) {
 	cmd := exec.Command("sensors")
@@ -96,49 +138,49 @@ func getLoadAverage() ([]int, error) {
 	return loads, nil
 }
 
-func getCPUInfo() map[string]any {
-	info := map[string]any{}
+func getCPUInfo() CPUInfo {
+	info := CPUInfo{}
 
 	// Get load info
 	loads, err := getLoadAverage()
 	if err != nil {
-		info["load_is_available"] = false
-		info["load1_percent"] = 0
-		info["load15_percent"] = 0
+		info.LoadAvailable = false
+		info.Load1Percent = 0
+		info.Load15Percent = 0
 	} else {
-		info["load_is_available"] = true
-		info["load1_percent"] = loads[0]
-		info["load15_percent"] = loads[1]
+		info.LoadAvailable = true
+		info.Load1Percent = loads[0]
+		info.Load15Percent = loads[1]
 	}
 
 	// Getting cpu temp
 	temperature, err := getCPUTemperature()
 	if err != nil {
-		info["temperature_is_available"] = false
-		info["temperature_c"] = 0
+		info.TempAvailable = false
+		info.TemperatureC = 0
 		fmt.Printf("CPU temperature error %v\n", err)
 	} else {
-		info["temperature_is_available"] = true
-		info["temperature_c"] = temperature
+		info.TempAvailable = true
+		info.TemperatureC = temperature
 	}
 
 	return info
 }
 
-func getMemoryInfo() map[string]any {
-	info := map[string]any{}
+func getMemoryInfo() MemoryInfo {
+	info := MemoryInfo{}
 
 	// Read /proc/meminfo for memory statistics
 	content, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
-		info["memory_is_available"] = false
-		info["total_mb"] = 0
-		info["used_mb"] = 0
-		info["used_percent"] = 0
-		info["swap_is_available"] = false
-		info["swap_total_mb"] = 0
-		info["swap_used_mb"] = 0
-		info["swap_used_percent"] = 0
+		info.MemoryAvailable = false
+		info.TotalMB = 0
+		info.UsedMB = 0
+		info.UsedPercent = 0
+		info.SwapAvailable = false
+		info.SwapTotalMB = 0
+		info.SwapUsedMB = 0
+		info.SwapUsedPercent = 0
 		return info
 	}
 
@@ -160,14 +202,14 @@ func getMemoryInfo() map[string]any {
 		swapUsedPercent = int((float64(swapUsedMB) / float64(swapTotalMB)) * 100)
 	}
 
-	info["memory_is_available"] = true
-	info["total_mb"] = totalMB
-	info["used_mb"] = usedMB
-	info["used_percent"] = usedPercent
-	info["swap_is_available"] = true
-	info["swap_total_mb"] = swapTotalMB
-	info["swap_used_mb"] = swapUsedMB
-	info["swap_used_percent"] = swapUsedPercent
+	info.MemoryAvailable = true
+	info.TotalMB = totalMB
+	info.UsedMB = usedMB
+	info.UsedPercent = usedPercent
+	info.SwapAvailable = true
+	info.SwapTotalMB = swapTotalMB
+	info.SwapUsedMB = swapUsedMB
+	info.SwapUsedPercent = swapUsedPercent
 
 	return info
 }
@@ -190,8 +232,8 @@ func parseMemInfo(content string) map[string]int64 {
 	return memInfo
 }
 
-func getMountpoints() []map[string]any {
-	var mountpoints []map[string]any
+func getMountpoints() []Mountpoint {
+	var mountpoints []Mountpoint
 
 	// Read /proc/mounts to get mount information
 	content, err := os.ReadFile("/proc/mounts")
@@ -225,12 +267,12 @@ func getMountpoints() []map[string]any {
 				continue
 			}
 
-			mountpointInfo := map[string]any{
-				"path":         mountpoint,
-				"name":         mountpoint,
-				"total_mb":     usage["total_mb"],
-				"used_mb":      usage["used_mb"],
-				"used_percent": usage["used_percent"],
+			mountpointInfo := Mountpoint{
+				Path:        mountpoint,
+				Name:        mountpoint,
+				TotalMB:     usage.TotalMB,
+				UsedMB:      usage.UsedMB,
+				UsedPercent: usage.UsedPercent,
 			}
 
 			mountpoints = append(mountpoints, mountpointInfo)
@@ -240,49 +282,47 @@ func getMountpoints() []map[string]any {
 	return mountpoints
 }
 
-func getDiskUsage(path string) (map[string]int64, error) {
+func getDiskUsage(path string) (DiskUsage, error) {
 	// Use statvfs system call equivalent
 	cmd := exec.Command("df", "-B1", path)
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		return DiskUsage{}, err
 	}
 
 	lines := strings.Split(string(output), "\n")
 	if len(lines) < 2 {
-		return nil, fmt.Errorf("invalid df output")
+		return DiskUsage{}, fmt.Errorf("invalid df output")
 	}
 
 	// Parse the second line (first line is header)
 	parts := strings.Fields(lines[1])
 	if len(parts) < 4 {
-		return nil, fmt.Errorf("invalid df output format")
+		return DiskUsage{}, fmt.Errorf("invalid df output format")
 	}
 
 	totalBytes, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return nil, err
+		return DiskUsage{}, err
 	}
 
 	usedBytes, err := strconv.ParseInt(parts[2], 10, 64)
 	if err != nil {
-		return nil, err
+		return DiskUsage{}, err
 	}
 
 	totalMB := totalBytes / (1024 * 1024)
 	usedMB := usedBytes / (1024 * 1024)
 	usedPercent := int64((float64(usedBytes) / float64(totalBytes)) * 100)
 
-	return map[string]int64{
-		"total_mb":     totalMB,
-		"used_mb":      usedMB,
-		"used_percent": usedPercent,
+	return DiskUsage{
+		TotalMB:     totalMB,
+		UsedMB:      usedMB,
+		UsedPercent: usedPercent,
 	}, nil
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	response := make(map[string]any)
-
 	// Get uptime
 	file, err := os.ReadFile("/proc/uptime")
 	if err != nil {
@@ -300,20 +340,23 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	// Get hostname
 	hostname, err := os.Hostname()
 	if err != nil {
-		response["hostname"] = nil
+		hostname = ""
 		fmt.Println("Could not resolve hostname %w", err)
 	}
 
 	// Get platform
 	const platform string = runtime.GOOS
 
-	response["host_info_is_available"] = true
-	response["boot_time"] = time.Now().Unix() - int64(uptime)
-	response["hostname"] = hostname
-	response["platform"] = platform
-	response["cpu"] = getCPUInfo()
-	response["memory"] = getMemoryInfo()
-	response["mountpoints"] = getMountpoints()
+	// Create the response using proper structs
+	response := ServerStatus{
+		HostInfo:    true,
+		BootTime:    time.Now().Unix() - int64(uptime),
+		Hostname:    hostname,
+		Platform:    platform,
+		CPU:         getCPUInfo(),
+		Memory:      getMemoryInfo(),
+		Mountpoints: getMountpoints(),
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
