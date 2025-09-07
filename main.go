@@ -26,11 +26,11 @@ type ServerStatus struct {
 
 // CPUInfo represents CPU-related information
 type CPUInfo struct {
-	LoadAvailable bool `json:"load_is_available"`
-	Load1Percent  int  `json:"load1_percent"`
-	Load15Percent int  `json:"load15_percent"`
-	TempAvailable bool `json:"temperature_is_available"`
-	TemperatureC  int  `json:"temperature_c"`
+	LoadAvailable bool  `json:"load_is_available"`
+	Load1Percent  uint8 `json:"load1_percent"`
+	Load15Percent uint8 `json:"load15_percent"`
+	TempAvailable bool  `json:"temperature_is_available"`
+	TemperatureC  int   `json:"temperature_c"`
 }
 
 // MemoryInfo represents memory and swap information
@@ -38,11 +38,11 @@ type MemoryInfo struct {
 	MemoryAvailable bool  `json:"memory_is_available"`
 	TotalMB         int64 `json:"total_mb"`
 	UsedMB          int64 `json:"used_mb"`
-	UsedPercent     int   `json:"used_percent"`
+	UsedPercent     uint8 `json:"used_percent"`
 	SwapAvailable   bool  `json:"swap_is_available"`
 	SwapTotalMB     int64 `json:"swap_total_mb"`
 	SwapUsedMB      int64 `json:"swap_used_mb"`
-	SwapUsedPercent int   `json:"swap_used_percent"`
+	SwapUsedPercent uint8 `json:"swap_used_percent"`
 }
 
 // Mountpoint represents a filesystem mount point
@@ -51,14 +51,14 @@ type Mountpoint struct {
 	Name        string `json:"name"`
 	TotalMB     int64  `json:"total_mb"`
 	UsedMB      int64  `json:"used_mb"`
-	UsedPercent int64  `json:"used_percent"`
+	UsedPercent uint8  `json:"used_percent"`
 }
 
 // DiskUsage represents disk usage information
 type DiskUsage struct {
 	TotalMB     int64 `json:"total_mb"`
 	UsedMB      int64 `json:"used_mb"`
-	UsedPercent int64 `json:"used_percent"`
+	UsedPercent uint8 `json:"used_percent"`
 }
 
 func getCPUTemperature() (int, error) {
@@ -148,8 +148,8 @@ func getCPUInfo() CPUInfo {
 		info.Load15Percent = 0
 	} else {
 		info.LoadAvailable = true
-		info.Load1Percent = loads[0]
-		info.Load15Percent = loads[1]
+		info.Load1Percent = uint8(loads[0])
+		info.Load15Percent = uint8(loads[1])
 	}
 
 	temperature, err := getCPUTemperature()
@@ -187,15 +187,15 @@ func getMemoryInfo() MemoryInfo {
 	totalMB := memInfo["MemTotal"] / 1024
 	availableMB := memInfo["MemAvailable"] / 1024
 	usedMB := totalMB - availableMB
-	usedPercent := int((float64(usedMB) / float64(totalMB)) * 100)
+	usedPercent := uint8((float64(usedMB) / float64(totalMB)) * 100)
 
 	// Calculate swap usage
 	swapTotalMB := memInfo["SwapTotal"] / 1024
 	swapFreeMB := memInfo["SwapFree"] / 1024
 	swapUsedMB := swapTotalMB - swapFreeMB
-	swapUsedPercent := 0
+	swapUsedPercent := uint8(0)
 	if swapTotalMB > 0 {
-		swapUsedPercent = int((float64(swapUsedMB) / float64(swapTotalMB)) * 100)
+		swapUsedPercent = uint8((float64(swapUsedMB) / float64(swapTotalMB)) * 100)
 	}
 
 	info.MemoryAvailable = true
@@ -305,7 +305,7 @@ func getDiskUsage(path string) (DiskUsage, error) {
 
 	totalMB := totalBytes / (1024 * 1024)
 	usedMB := usedBytes / (1024 * 1024)
-	usedPercent := int64((float64(usedBytes) / float64(totalBytes)) * 100)
+	usedPercent := uint8((float64(usedBytes) / float64(totalBytes)) * 100)
 
 	return DiskUsage{
 		TotalMB:     totalMB,
