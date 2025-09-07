@@ -141,7 +141,6 @@ func getLoadAverage() ([]int, error) {
 func getCPUInfo() CPUInfo {
 	info := CPUInfo{}
 
-	// Get load info
 	loads, err := getLoadAverage()
 	if err != nil {
 		info.LoadAvailable = false
@@ -153,7 +152,6 @@ func getCPUInfo() CPUInfo {
 		info.Load15Percent = loads[1]
 	}
 
-	// Getting cpu temp
 	temperature, err := getCPUTemperature()
 	if err != nil {
 		info.TempAvailable = false
@@ -170,7 +168,6 @@ func getCPUInfo() CPUInfo {
 func getMemoryInfo() MemoryInfo {
 	info := MemoryInfo{}
 
-	// Read /proc/meminfo for memory statistics
 	content, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
 		info.MemoryAvailable = false
@@ -184,7 +181,6 @@ func getMemoryInfo() MemoryInfo {
 		return info
 	}
 
-	// Parse memory info
 	memInfo := parseMemInfo(string(content))
 
 	// Calculate memory usage
@@ -235,7 +231,6 @@ func parseMemInfo(content string) map[string]int64 {
 func getMountpoints() []Mountpoint {
 	var mountpoints []Mountpoint
 
-	// Read /proc/mounts to get mount information
 	content, err := os.ReadFile("/proc/mounts")
 	if err != nil {
 		return mountpoints
@@ -261,7 +256,6 @@ func getMountpoints() []Mountpoint {
 				continue
 			}
 
-			// Get disk usage for this mountpoint
 			usage, err := getDiskUsage(mountpoint)
 			if err != nil {
 				continue
@@ -283,7 +277,6 @@ func getMountpoints() []Mountpoint {
 }
 
 func getDiskUsage(path string) (DiskUsage, error) {
-	// Use statvfs system call equivalent
 	cmd := exec.Command("df", "-B1", path)
 	output, err := cmd.Output()
 	if err != nil {
@@ -295,7 +288,6 @@ func getDiskUsage(path string) (DiskUsage, error) {
 		return DiskUsage{}, fmt.Errorf("invalid df output")
 	}
 
-	// Parse the second line (first line is header)
 	parts := strings.Fields(lines[1])
 	if len(parts) < 4 {
 		return DiskUsage{}, fmt.Errorf("invalid df output format")
@@ -323,7 +315,6 @@ func getDiskUsage(path string) (DiskUsage, error) {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	// Get uptime
 	file, err := os.ReadFile("/proc/uptime")
 	if err != nil {
 		fmt.Println("No uptime found")
@@ -337,17 +328,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("failed to parse uptime: %w", err)
 	}
 
-	// Get hostname
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = ""
 		fmt.Println("Could not resolve hostname %w", err)
 	}
 
-	// Get platform
 	const platform string = runtime.GOOS
 
-	// Create the response using proper structs
 	response := ServerStatus{
 		HostInfo:    true,
 		BootTime:    time.Now().Unix() - int64(uptime),
